@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17151d">
+  <title>Freeblatro — FreeCell with a twist</title>
+  <link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <main class="game-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <p class="eyebrow">A PATIENCE ROGUELIKE</p>
+        <h1>FREE<span>BLATRO</span></h1>
+      </div>
+      <section class="run-stats" aria-label="Run status">
+        <div class="stat ante"><small>ANTE</small><strong id="ante-value">1/8</strong></div>
+        <div class="stat"><small>MONEY</small><strong id="money-value">$4</strong></div>
+        <div class="stat"><small>REDEALS</small><strong id="redeal-value">3</strong></div>
+      </section>
+    </header>
+
+    <section class="blind-panel" aria-label="Current blind">
+      <div class="blind-icon" id="blind-icon">●</div>
+      <div class="blind-copy">
+        <small id="blind-kicker">SMALL BLIND</small>
+        <strong id="blind-name">The Opening</strong>
+        <span id="boss-effect">Clear the FreeCell deal and beat the target.</span>
+      </div>
+      <div class="score-box">
+        <small>SCORE</small>
+        <div><strong id="score-value">0</strong><span>/</span><b id="target-value">450</b></div>
+        <div class="score-meter"><i id="score-meter-fill"></i></div>
+      </div>
+    </section>
+
+    <section class="jokers-panel" aria-label="Jokers">
+      <div class="section-label"><span>JOKERS</span><small id="joker-count">1 / 5</small></div>
+      <div id="jokers" class="joker-row"></div>
+    </section>
+
+    <section class="play-area" aria-label="FreeCell table">
+      <div class="upper-board">
+        <div class="zone-group">
+          <div class="section-label"><span>FREE CELLS</span><small id="capacity-label">Move up to 5 cards</small></div>
+          <div id="freecells" class="slot-row freecells"></div>
+        </div>
+        <div class="zone-group foundations-group">
+          <div class="section-label"><span>FOUNDATIONS</span><small>Build A → K</small></div>
+          <div id="foundations" class="slot-row foundations"></div>
+        </div>
+      </div>
+
+      <div class="tableau-heading">
+        <div class="section-label"><span>TABLEAU</span><small>Descending, alternating colours</small></div>
+        <div id="move-readout" class="move-readout" role="status" aria-live="polite">Choose a card</div>
+      </div>
+      <div class="tableau-scroll">
+        <div id="tableau" class="tableau"></div>
+      </div>
+    </section>
+
+    <footer class="actionbar">
+      <div class="button-group">
+        <button id="undo-button" class="button ghost" type="button">↶ Undo</button>
+        <button id="hint-button" class="button ghost" type="button">✦ Hint</button>
+        <button id="redeal-button" class="button danger" type="button">Redeal <span>−1</span></button>
+      </div>
+      <div class="score-pop" id="score-pop" aria-live="polite">
+        <b id="chips-readout">0</b> CHIPS <span>×</span> <b id="mult-readout">1</b> MULT
+      </div>
+      <button id="new-run-button" class="button primary" type="button">New Run</button>
+    </footer>
+  </main>
+
+  <dialog id="modal" class="modal">
+    <div id="modal-content"></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="game.js?v=1"></script>
+</body>
+</html>
