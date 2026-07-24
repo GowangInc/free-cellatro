@@ -71,6 +71,16 @@ body{
   justify-content:center;font-size:1.2rem;flex-shrink:0;
 }
 .blind-icon.boss{background:linear-gradient(135deg,#5a2020,#3a1010);color:var(--danger);box-shadow:0 0 12px rgba(220,38,38,0.3)}
+@keyframes validation-suit-flash{
+  0%,49.999%{color:#000}
+  50%,100%{color:var(--danger)}
+}
+@keyframes validation-text-flash{
+  0%,49.999%{color:var(--danger)}
+  50%,100%{color:#000}
+}
+.blind-icon.validating{animation:validation-suit-flash 0.7s steps(1,end) infinite}
+.blind-icon.validating + .blind-copy #blind-name{animation:validation-text-flash 0.7s steps(1,end) infinite}
 .blind-copy{flex:1;min-width:0}
 .blind-copy small{font-size:0.5rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-dim);font-family:var(--font-display)}
 .blind-copy strong{display:block;font-size:0.9rem;font-weight:700}

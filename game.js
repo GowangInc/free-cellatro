@@ -727,9 +727,9 @@ function renderSelection() {
 function updateBlindUI() {
   if (G.phase === 'validating') {
     $('blind-kicker').textContent = 'Preparing Blind';
-    $('blind-name').textContent = '♠ Validating…';
+    $('blind-name').textContent = 'Validating…';
     $('blind-icon').textContent = '♠';
-    $('blind-icon').className = 'blind-icon';
+    $('blind-icon').className = 'blind-icon validating';
     $('boss-effect').style.display = 'none';
     return;
   }
