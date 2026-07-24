@@ -304,3 +304,156 @@ body{
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}
 button:focus-visible,.card:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @media(min-width:800px){.upper-board{justify-content:center}.foundations-group,.zone-group{flex:none;width:auto}}
+
+/* --- Windows 95 desktop refresh --- */
+:root{
+  --bg:#008080;
+  --felt:#008080;
+  --card-bg:#fff;
+  --card-shadow:rgba(0,0,0,.45);
+  --text:#000;
+  --text-dim:#333;
+  --red:#d40000;
+  --black:#000;
+  --gold:#fff;
+  --gold-dim:#d6d6d6;
+  --accent:#000080;
+  --accent-glow:rgba(0,0,128,.35);
+  --danger:#800000;
+  --radius:0;
+  --card-olap:-42px;
+  --font-display:Arial,Helvetica,sans-serif;
+}
+body{background:#008080;color:#000;font-family:Tahoma,Arial,sans-serif;font-size:14px}
+.grain{display:none}
+.game-shell{
+  max-width:1000px;margin:8px auto;padding:3px;gap:6px;background:#c0c0c0;
+  border:2px solid;border-color:#fff #404040 #404040 #fff;
+  box-shadow:1px 1px #000,3px 3px #fff,4px 4px #000;
+}
+.topbar{
+  padding:4px 6px;background:#000080;border:0;border-radius:0;color:#fff;
+  justify-content:flex-start;gap:18px;
+}
+.brand-block .eyebrow{display:none}
+.brand-block h1{color:#fff;font-family:Tahoma,Arial,sans-serif;font-size:1rem;letter-spacing:0;font-weight:700}
+.brand-block h1 .gold{color:#fff}
+.run-stats{margin-left:auto;gap:12px}
+.stat small,.stat strong{font-family:Tahoma,Arial,sans-serif;color:#fff;font-size:.68rem;letter-spacing:0}
+.stat strong{font-size:.85rem}
+.stat .gold{color:#fff}
+.blind-panel,.jokers-panel{
+  background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff;
+  box-shadow:inset 1px 1px #dfdfdf,inset -1px -1px #404040;border-radius:0;
+}
+.blind-panel{padding:6px 8px}
+.blind-icon{width:32px;height:32px;border-radius:0;background:#008080;color:#fff;border:2px solid;border-color:#404040 #fff #fff #404040}
+.blind-icon.boss{background:#800000;color:#fff;box-shadow:none}
+.blind-copy small,.score-box small,.section-label span{font-family:Tahoma,Arial,sans-serif;color:#222;font-size:.66rem;letter-spacing:0;font-weight:700}
+.blind-copy strong{font-size:.95rem}
+#boss-effect,.move-readout{color:#000080;font-weight:700}
+.score-box>div{font-family:Tahoma,Arial,sans-serif;font-size:1rem}
+.score-box>div b{color:#000080}
+.score-meter{background:#808080;border:1px solid;border-color:#404040 #fff #fff #404040;border-radius:0}
+.score-meter i{background:#000080;border-radius:0}
+.jokers-panel{padding:5px 6px}
+.joker-row{gap:4px}
+.joker-slot{border-radius:0;background:#c0c0c0}
+.joker-slot.empty{border:2px solid;border-color:#808080 #fff #fff #808080;background:#c0c0c0}
+.joker-slot.filled{border:2px solid;border-color:#fff #404040 #404040 #fff;background:#e5e5e5;box-shadow:none}
+.joker-slot strong{font-family:Tahoma,Arial,sans-serif;color:#000;font-size:.64rem}
+.joker-slot small{color:#333;font-size:.52rem}
+.joker-rarity{height:3px}
+.play-area{padding:6px;background:#008080;border:2px solid;border-color:#404040 #fff #fff #404040}
+.tableau-heading{margin-bottom:4px;padding:3px 5px;background:#c0c0c0;border:2px solid;border-color:#fff #808080 #808080 #fff}
+.section-label span+small{color:#333;font-size:.65rem}
+.tableau-scroll{padding:3px 4px 8px;margin:0}
+.tableau{gap:8px}
+.tcol{
+  flex-basis:var(--card-w);padding:3px 2px 10px;background:rgba(0,64,64,.3);
+  outline:1px solid rgba(255,255,255,.28);outline-offset:-1px;
+}
+.tcol:hover{background:rgba(255,255,255,.12)}
+.freecell-slot,.foundation-slot{
+  border-radius:0;background:#008080;border:2px solid;border-color:#404040 #fff #fff #404040;
+}
+.freecell-slot.empty,.foundation-slot.empty{border:2px solid;border-color:#404040 #fff #fff #404040;background:#008080}
+.foundation-base-suit{opacity:.58;color:#fff;font-size:1.8rem}
+.card{
+  background:#fff;border:2px solid;border-color:#fff #404040 #404040 #fff;border-radius:0;
+  box-shadow:1px 1px #000;display:block;overflow:hidden;
+}
+.card:hover{box-shadow:1px 1px #000,0 0 0 2px #ffff00;transform:translateY(-2px)}
+.card-index{
+  position:absolute;display:flex;flex-direction:column;align-items:center;line-height:.82;
+  font-family:Arial,Helvetica,sans-serif;font-weight:900;color:#000;text-align:center;
+}
+.card-index.top{top:3px;left:4px}
+.card-index.bottom{right:4px;bottom:3px;transform:rotate(180deg)}
+.card-rank{font-size:1.05rem;font-weight:900;line-height:1}
+.card-suit{font-size:1rem;line-height:1}
+.card-pip{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2rem;line-height:1;color:#000}
+.card.red .card-index,.card.red .card-pip{color:#d40000}
+.tcol .card{margin-top:-42px}
+.tcol .card:first-child{margin-top:0}
+.card.selected{box-shadow:0 0 0 3px #ffff00,1px 1px #000;transform:translateY(-4px);z-index:100!important}
+.actionbar{padding:3px 0}
+.button,.shop-item button{
+  font-family:Tahoma,Arial,sans-serif;font-size:.72rem;font-weight:700;color:#000;background:#c0c0c0;
+  border:2px solid;border-color:#fff #404040 #404040 #fff;border-radius:0;box-shadow:none;
+}
+.button:hover,.shop-item button:hover{background:#d6d6d6;box-shadow:none}
+.button:active,.button.primary:active,.shop-item button:active{border-color:#404040 #fff #fff #404040;transform:translate(1px,1px)}
+.button.primary,.shop-item button{background:#c0c0c0;color:#000}
+.button.danger{background:#c0c0c0;color:#800000}
+.button.ghost{background:#c0c0c0;color:#000;border-color:#fff #404040 #404040 #fff}
+.score-pop{background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;border-radius:0}
+.chips-box,.mult-box{background:#000080;border-radius:0;font-family:Tahoma,Arial,sans-serif}
+.mult-box{background:#800000}
+.toast{background:#ffffe1;color:#000;border:2px solid;border-color:#fff #404040 #404040 #fff;border-radius:0;backdrop-filter:none}
+.modal{background:#c0c0c0;color:#000;border:2px solid;border-color:#fff #404040 #404040 #fff;border-radius:0;box-shadow:2px 2px #000;backdrop-filter:none}
+.modal::backdrop{background:rgba(0,0,0,.5)}
+.modal h2{font-family:Tahoma,Arial,sans-serif;background:#000080;color:#fff;padding:4px 6px;margin:-24px -20px 12px}
+.modal p,.shop-item small{color:#222}
+.shop-item{background:#e5e5e5;border:2px solid;border-color:#fff #808080 #808080 #fff;border-radius:0}
+
+@media(max-width:420px){
+  .game-shell{margin:0;padding:3px;border-left:0;border-right:0;box-shadow:none}
+  .tableau{gap:4px}
+  .tcol{padding-left:1px;padding-right:1px}
+  .tcol .card{margin-top:-24px}
+  .card-index.top{top:2px;left:2px}
+  .card-index.bottom{right:2px;bottom:2px}
+  .card-rank{font-size:.76rem}
+  .card-suit{font-size:.7rem}
+  .card-pip{font-size:1.25rem}
+  .button{font-size:.64rem}
+}
+
+@media(min-width:421px)and(max-width:599px){
+  :root{--card-olap:-30px}
+  .tcol .card{margin-top:-30px}
+}
+@media(max-width:420px){:root{--card-olap:-24px}}
+
+/* Readable Win95-scale copy and restrained game motion */
+.section-label span,.blind-copy small,.score-box small{font-size:.75rem;line-height:1.25}
+.section-label span+small,.move-readout{font-size:.75rem;line-height:1.25}
+.joker-slot strong{font-size:.7rem;line-height:1.15}
+.joker-slot small{font-size:.65rem;line-height:1.2}
+.button,.shop-item button{font-size:.78rem;line-height:1.15}
+.modal p,.shop-item small{font-size:.8rem;line-height:1.35}
+.card.deal-in{animation:deal-in .3s both;animation-delay:var(--deal-delay)}
+.foundation-pop{animation:foundation-pop .28s ease-out}
+.round-celebration{animation:round-celebration .36s ease-out both}
+.round-celebration .reward{font-size:2rem;color:#008000;font-weight:700;margin:12px 0}
+@keyframes deal-in{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes foundation-pop{50%{transform:scale(1.1);filter:brightness(1.3)}}
+@keyframes round-celebration{from{transform:scale(.8);opacity:0}70%{transform:scale(1.04)}to{transform:scale(1);opacity:1}}
+@media(max-width:420px){
+  .section-label span,.blind-copy small,.score-box small,.section-label span+small,.move-readout{font-size:.66rem}
+  .joker-slot strong{font-size:.62rem}
+  .button{font-size:.68rem}
+}
+
+.tableau-heading .section-label{gap:6px}

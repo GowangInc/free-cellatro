@@ -271,6 +271,7 @@ function isSolvableDeal(tableau, freeCellCount) {
           moves.push({ type:'freecell-foundation', fci, fi });
       }
     }
+    if (!moves.length) {
     for (let ci = 0; ci < TABLEAU_COLS; ci++) {
       const card = state.tableau[ci].at(-1);
       if (!card) continue;
@@ -286,6 +287,7 @@ function isSolvableDeal(tableau, freeCellCount) {
       for (let di = 0; di < TABLEAU_COLS; di++)
         if (canPlaceOnTableau(card, state.tableau[di]))
           moves.push({ type:'freecell-tableau', fci, di });
+    }
     }
     for (const move of moves) {
       const next = copyState(state);
@@ -338,6 +340,7 @@ function pickSeed() {
    7. GAME ACTIONS
    --------------------------------------------------------- */
 function newRun() {
+  if (autoCompleting) return;
   G = freshState();
   const pool = JOKER_IDS.filter(j => j.rarity === 'common');
   G.jokers.push({ id: pool[Math.floor(Math.random() * pool.length)].id });
@@ -345,6 +348,7 @@ function newRun() {
   renderAll();
 }
 let dealToken = 0;
+const verifiedDealSeeds = new Map([[4, [1068]]]);
 function dealBlind() {
   const token = ++dealToken;
   G.phase = 'validating';
@@ -355,13 +359,18 @@ function dealBlind() {
   updateBlindUI();
   renderAll();
   let retry = 0;
+  const freeCellCount = effectiveFreeCells(G);
+  const verifiedSeeds = verifiedDealSeeds.get(freeCellCount) || [];
   const validateNext = () => {
     if (token !== dealToken) return;
-    const seed = ((pickSeed() + retry) & 0x7fffffff) >>> 0;
+    const seed = retry < verifiedSeeds.length
+      ? verifiedSeeds[retry]
+      : ((pickSeed() + retry - verifiedSeeds.length) & 0x7fffffff) >>> 0;
     const candidate = dealColumns(microsoftDeal(seed));
-    const freeCellCount = effectiveFreeCells(G);
     if (isSolvableDeal(candidate, freeCellCount)) {
       if (token !== dealToken) return;
+      const knownSeeds = verifiedDealSeeds.get(freeCellCount) || [];
+      if (!knownSeeds.includes(seed)) verifiedDealSeeds.set(freeCellCount, [...knownSeeds, seed]);
       G.tableau = candidate;
       G.freecells = Array(freeCellCount).fill(null);
       G.foundations = [[],[],[],[]];
@@ -369,8 +378,12 @@ function dealBlind() {
       G.blindTarget = gt(G.ante, G.blindIdx);
       if (G.ante === 5 && G.blindIdx === 2) G.blindTarget = Math.floor(G.blindTarget * 1.5);
       G.phase = 'playing';
+      G.dealing = true;
       updateBlindUI();
       renderAll();
+      setTimeout(() => {
+        if (token === dealToken && G.phase === 'playing') G.dealing = false;
+      }, 520);
       return;
     }
     retry++;
@@ -379,19 +392,19 @@ function dealBlind() {
   setTimeout(validateNext, 0);
 }
 function redeal() {
-  if (G.redeals <= 0 || !['playing','blind-done'].includes(G.phase)) return;
+  if (autoCompleting || G.redeals <= 0 || !['playing','blind-done'].includes(G.phase)) return;
   Sound.redeal(); G.redeals--; dealBlind();
   toast('Redeal! '+G.redeals+' left');
 }
 function skipDeal() {
-  if (G.phase !== 'playing') return;
+  if (autoCompleting || G.phase !== 'playing') return;
   G.skipCount++; Sound.deal(); dealBlind();
   toast('Fresh deal');
 }
 
 /* --- selection & move --- */
 function select(src, col, idx) {
-  if (G.phase !== 'playing') return;
+  if (G.phase !== 'playing' || autoCompleting) return;
   Sound.click();
   if (G.selected && G.selected.src===src && G.selected.col===col && G.selected.idx===idx)
     { G.selected=null; renderAll(); return; }
@@ -416,7 +429,7 @@ function rmCard(src, col, idx) {
 }
 
 function performMove(dt, di) {
-  if (!G.selected || G.phase !== 'playing') return;
+  if (!G.selected || G.phase !== 'playing' || (autoCompleting && !G.autoStep)) return;
   const card = getCard(G.selected); if (!card) return;
   const { src, col:sc, idx:si } = G.selected;
 
@@ -427,6 +440,7 @@ function performMove(dt, di) {
       { toast('Cannot place there'); Sound.error(); return; }
     pushUndo(); rmCard(src, sc, si);
     G.foundations[di].push(card); G.cardsScored++;
+    G.foundationPulse = di;
     const r = computeScore(G, card);
     G.score += r.total; G.selected = null;
     Sound.score(); showScorePop(r.total, card); renderAll(); checkBlindState(); return;
@@ -469,26 +483,84 @@ function performMove(dt, di) {
 }
 
 function undo() {
-  if (!G.undoStack.length || G.phase !== 'playing') return;
+  if (autoCompleting || !G.undoStack.length || G.phase !== 'playing') return;
   Sound.undo(); const s = G.undoStack.pop();
   G.tableau = s.tableau; G.freecells = s.freecells; G.foundations = s.foundations;
   G.score = s.score; G.cardsScored = s.cardsScored; G.selected = s.selected; renderAll();
 }
 
-function checkBlindState() {
-  if (G.foundations.reduce((s,f)=>s+f.length,0) < 52) return;
-  if (G.score >= G.blindTarget) {
-    G.money += gr(G.ante, G.blindIdx) + Math.min(5, Math.floor(G.money/5));
-    G.totalScore += G.score; Sound.win();
-    if (G.blindIdx === 2) {
-      if (G.ante >= 8) { G.phase='won'; showModal(renderWinScreen); renderAll(); return; }
-      G.ante++; G.blindIdx = 0;
-    } else G.blindIdx++;
-    G.phase='shop'; renderAll(); showShop();
-  } else {
-    if (G.redeals > 0) { G.phase='blind-done'; renderAll(); showModal(renderFailScreen); }
-    else { G.phase='lost'; renderAll(); showModal(renderGameOverScreen); }
+let autoCompleting = false;
+let autoCompleteToken = 0;
+function hasOrderedTableau() {
+  return G.freecells.every(card => card === null) && G.tableau.every(col =>
+    col.length === 0 || (col[0].rank === 13 && getSequenceLength(col) === col.length)
+  );
+}
+function nextFoundationMove() {
+  for (let ci = 0; ci < G.tableau.length; ci++) {
+    const col = G.tableau[ci], card = col.at(-1);
+    if (!card) continue;
+    const foundation = G.foundations.findIndex(stack => canPlaceOnFoundation(card, stack));
+    if (foundation !== -1) return { src:'tableau', col:ci, idx:col.length-1, foundation };
   }
+  return null;
+}
+function autoComplete() {
+  if (G.phase !== 'playing' || autoCompleting) return;
+  if (!hasOrderedTableau()) {
+    toast('Auto Complete is ready when every column is a King-down alternating run');
+    return;
+  }
+  const token = ++autoCompleteToken;
+  let moves = 0;
+  autoCompleting = true;
+  const step = () => {
+    if (token !== autoCompleteToken || G.phase !== 'playing') {
+      autoCompleting = false;
+      return;
+    }
+    const move = nextFoundationMove();
+    if (!move) {
+      autoCompleting = false;
+      toast(moves ? 'Auto-complete moved '+moves+' card'+(moves===1?'':'s') : 'No foundation cards ready');
+      return;
+    }
+    G.selected = { src:move.src, col:move.col, idx:move.idx };
+    G.autoStep = true;
+    performMove('foundation', move.foundation);
+    G.autoStep = false;
+    moves++;
+    setTimeout(step, 130);
+  };
+  step();
+}
+
+function checkBlindState() {
+  if (G.phase !== 'playing' || G.foundations.reduce((s,f)=>s+f.length,0) < 52) return;
+  if (G.score >= G.blindTarget) {
+    const reward = gr(G.ante, G.blindIdx) + Math.min(5, Math.floor(G.money/5));
+    G.money += reward; G.totalScore += G.score; Sound.win();
+    if (G.blindIdx === 2 && G.ante >= 8) {
+      G.phase='won'; showModal(renderWinScreen); renderAll(); return;
+    }
+    G.roundReward = reward;
+    G.phase='blind-cleared';
+    renderAll();
+    showModal(renderBlindWinScreen);
+  } else if (G.redeals > 0) {
+    G.phase='blind-done'; renderAll(); showModal(renderFailScreen);
+  } else {
+    G.phase='lost'; renderAll(); showModal(renderGameOverScreen);
+  }
+}
+function continueAfterBlind() {
+  if (G.phase !== 'blind-cleared') return;
+  closeModal();
+  if (G.blindIdx === 2) { G.ante++; G.blindIdx = 0; }
+  else G.blindIdx++;
+  G.phase='shop';
+  renderAll();
+  showShop();
 }
 
 /* ---------------------------------------------------------
@@ -553,6 +625,19 @@ function showHint() {
 function $(id) { return document.getElementById(id); }
 function renderAll() { renderTableau(); renderFrees(); renderFoundations(); renderJokers(); renderHUD(); renderSelection(); }
 
+const pendingCardClicks = new WeakMap();
+function queueCardClick(element, src, col, idx) {
+  pendingCardClicks.set(element, setTimeout(() => {
+    pendingCardClicks.delete(element);
+    onCardClick(src, col, idx);
+  }, 500));
+}
+function cancelCardClick(element) {
+  const timer = pendingCardClicks.get(element);
+  clearTimeout(timer);
+  pendingCardClicks.delete(element);
+}
+
 function renderTableau() {
   const el = $('tableau'); el.innerHTML = '';
   const ch = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-h'))||100;
@@ -565,7 +650,15 @@ function renderTableau() {
     if (col.length) div.style.minHeight = (ch + (col.length-1) * step) + 'px';
     col.forEach((card, j) => {
       const cd = mCard(card); cd.dataset.col = i; cd.dataset.idx = j;
-      cd.addEventListener('click', e => { e.stopPropagation(); onCardClick('tableau',i,j); });
+      if (G.dealing) { cd.classList.add('deal-in'); cd.style.setProperty('--deal-delay', (i*35+j*12)+'ms'); }
+      cd.addEventListener('click', e => {
+        e.stopPropagation();
+        if (e.detail === 1) queueCardClick(cd, 'tableau', i, j);
+      });
+      cd.addEventListener('dblclick', e => {
+        e.preventDefault(); e.stopPropagation();
+        cancelCardClick(cd); autoMoveCard('tableau', i, j);
+      });
       div.appendChild(cd);
     });
     el.appendChild(div);
@@ -576,26 +669,33 @@ function renderFrees() {
   const cap = effectiveFreeCells(G);
   for (let i = 0; i < cap; i++) {
     const s = document.createElement('div'); s.className = 'freecell-slot'+(G.freecells[i]?'':' empty'); s.dataset.fc = i;
-    if (G.freecells[i]) { const cd = mCard(G.freecells[i]); cd.addEventListener('click',e=>{e.stopPropagation(); onCardClick('freecell',i,0);}); s.appendChild(cd); }
+    if (G.freecells[i]) { const cd=mCard(G.freecells[i]); cd.addEventListener('click',e=>{e.stopPropagation();if(e.detail===1)queueCardClick(cd,'freecell',i,0);}); cd.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();cancelCardClick(cd);autoMoveCard('freecell',i,0);}); s.appendChild(cd); }
     s.addEventListener('click',()=>onFreeClick(i)); el.appendChild(s);
   }
 }
 function renderFoundations() {
   const el = $('foundations'); el.innerHTML = '';
   ['S','H','D','C'].forEach((suit, i) => {
-    const s = document.createElement('div'); s.className = 'foundation-slot'+(G.foundations[i].length?'':' empty'); s.dataset.fd = i;
+    const s = document.createElement('div'); s.className = 'foundation-slot'+(G.foundations[i].length?'':' empty')+(G.foundationPulse===i?' foundation-pop':''); s.dataset.fd = i;
     if (G.foundations[i].length) s.appendChild(mCard(G.foundations[i][G.foundations[i].length-1]));
     else { const d = document.createElement('span'); d.className='foundation-base-suit'; d.textContent=SUIT_SYM[suit]; s.appendChild(d); }
     s.addEventListener('click',()=>onFoundationClick(i)); el.appendChild(s);
   });
+  G.foundationPulse = null;
 }
 function mCard(card) {
   const d = document.createElement('div'); d.className = 'card'; d.dataset.id = card.id;
   d.dataset.rank = card.rank; d.dataset.suit = card.suit;
   if (card.suit === 'H' || card.suit === 'D') d.classList.add('red');
-  const r = document.createElement('span'); r.className='card-rank'; r.textContent=RANK_LABEL[card.rank];
-  const s = document.createElement('span'); s.className='card-suit'; s.textContent=SUIT_SYM[card.suit];
-  d.appendChild(r); d.appendChild(s); return d;
+  for (const position of ['top', 'bottom']) {
+    const index = document.createElement('span'); index.className = 'card-index '+position;
+    const rank = document.createElement('span'); rank.className='card-rank'; rank.textContent=RANK_LABEL[card.rank];
+    const suit = document.createElement('span'); suit.className='card-suit'; suit.textContent=SUIT_SYM[card.suit];
+    index.append(rank, suit); d.appendChild(index);
+  }
+  const pip = document.createElement('span'); pip.className='card-pip'; pip.textContent=SUIT_SYM[card.suit];
+  d.appendChild(pip);
+  return d;
 }
 function renderJokers() {
   const el = $('jokers'); el.innerHTML = '';
@@ -656,6 +756,53 @@ function updateBlindUI() {
 /* ---------------------------------------------------------
    11. EVENTS
    --------------------------------------------------------- */
+function autoMoveCard(src, col, idx) {
+  if (G.phase !== 'playing' || autoCompleting) return;
+  const card = src === 'tableau' ? G.tableau[col]?.[idx] : G.freecells[col];
+  if (!card) return;
+
+  const selectCard = () => { G.selected = { src, col, idx }; };
+  const foundationIndex = G.foundations.findIndex(foundation => canPlaceOnFoundation(card, foundation));
+  if (foundationIndex !== -1 && (src === 'freecell' || idx === G.tableau[col].length - 1)) {
+    selectCard();
+    performMove('foundation', foundationIndex);
+    return;
+  }
+
+  const sequenceLength = src === 'tableau' ? G.tableau[col].length - idx : 1;
+  const movableSequence = src === 'freecell' || (
+    getSequenceLength(G.tableau[col]) >= sequenceLength &&
+    (sequenceLength === 1 || sequenceLength <= maxMoveCapacity(G))
+  );
+  if (movableSequence) {
+    for (const preferEmpty of [false, true]) {
+      for (let destination = 0; destination < G.tableau.length; destination++) {
+        const target = G.tableau[destination];
+        if (destination === col || Boolean(target.length) === preferEmpty || !canPlaceOnTableau(card, target)) continue;
+        if (src === 'tableau' && sequenceLength > 1) {
+          const emptyColumns = G.tableau.filter(column => column.length === 0).length;
+          const capacity = (1 + G.freecells.filter(cell => cell === null).length) *
+            Math.pow(2, target.length === 0 ? Math.max(0, emptyColumns - 1) : emptyColumns);
+          if (sequenceLength > capacity) continue;
+        }
+        selectCard();
+        performMove('tableau', destination);
+        return;
+      }
+    }
+  }
+
+  if (src === 'tableau' && sequenceLength === 1) {
+    const freeCell = G.freecells.findIndex(cell => cell === null);
+    if (freeCell !== -1) {
+      selectCard();
+      performMove('freecell', freeCell);
+      return;
+    }
+  }
+  toast('No automatic move available');
+}
+
 function onCardClick(src, col, idx) {
   if (G.phase !== 'playing') return;
   if (G.selected) {
@@ -711,6 +858,11 @@ function renderShopModal() {
   h += '</div><div class="modal-actions"><button class="button ghost" onclick="rerollShop()"'+(G.money<1+shopState.rerolls?' disabled':'')+'>Reroll ($'+(1+shopState.rerolls)+')</button><button class="button primary" onclick="skipShop()">Continue →</button></div></div>';
   return h;
 }
+function renderBlindWinScreen() {
+  const blind = BLIND_NAMES[G.blindIdx];
+  return '<div class="modal-result round-celebration"><h2>★ '+blind+' Cleared!</h2><p>Score: <strong>'+G.score+' / '+G.blindTarget+'</strong></p><p class="reward">+$'+G.roundReward+'</p><div class="modal-actions"><button class="button primary" onclick="continueAfterBlind()">Collect & Continue</button></div></div>';
+}
+
 function renderFailScreen() {
   return '<div class="modal-result"><h2>✗ Need '+G.blindTarget+' (got '+G.score+')</h2><p>'+(G.redeals?'You have '+G.redeals+' redeal'+(G.redeals!==1?'s':'')+' left.':'No redeals remain.')+'</p><div class="modal-actions">'+(G.redeals?'<button class="button primary" onclick="redeal(); closeModal();">Redeal ('+G.redeals+' left)</button>':'')+'<button class="button danger" onclick="giveUp()">Give Up</button></div></div>';
 }
@@ -727,12 +879,14 @@ function renderWinScreen() {
 function init() {
   $('undo-button').addEventListener('click', undo);
   $('hint-button').addEventListener('click', showHint);
+  $('autocomplete-button').addEventListener('click', autoComplete);
   $('redeal-button').addEventListener('click', redeal);
   $('skip-button').addEventListener('click', skipDeal);
   $('new-run-button').addEventListener('click', ()=>{ closeModal(); newRun(); });
   $('modal').addEventListener('cancel', e => e.preventDefault());
   window.buyJoker=buyJoker; window.rerollShop=rerollShop; window.skipShop=skipShop;
   window.redeal=()=>{redeal();}; window.closeModal=closeModal; window.newRun=newRun;
+  window.continueAfterBlind=continueAfterBlind;
   window.giveUp=function(){ closeModal(); G.phase='lost'; renderAll(); showModal(renderGameOverScreen); };
   newRun();
 }
