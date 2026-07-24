@@ -230,6 +230,86 @@ function computeScore(state, card) {
 }
 
 /* ---------------------------------------------------------
+   6. DEAL VALIDATION
+   A conservative solver proves a deal with ordinary legal
+   one-card moves before it is shown. It may reject a solvable
+   deal; it never accepts an unproven one.
+   --------------------------------------------------------- */
+function isSolvableDeal(tableau, freeCellCount) {
+  const initial = {
+    tableau: tableau.map(col => [...col]),
+    freecells: Array(freeCellCount).fill(null),
+    foundations: [[], [], [], []],
+  };
+  const visited = new Set();
+  const stateKey = state => [
+    state.tableau.map(col => col.map(card => card.id).join(',')).join('/'),
+    state.freecells.map(card => card ? card.id : '.').join(','),
+    state.foundations.map(stack => stack.length ? stack.at(-1).id : '.').join(','),
+  ].join('|');
+  const copyState = state => ({
+    tableau: state.tableau.map(col => [...col]),
+    freecells: [...state.freecells],
+    foundations: state.foundations.map(stack => [...stack]),
+  });
+  const search = (state, depth) => {
+    if (state.foundations.every(stack => stack.length === 13)) return true;
+    if (depth >= 250 || visited.size >= 6000) return false;
+    const key = stateKey(state);
+    if (visited.has(key)) return false;
+    visited.add(key);
+    const moves = [];
+    for (let fi = 0; fi < FOUNDATION_COLS; fi++) {
+      for (let ci = 0; ci < TABLEAU_COLS; ci++) {
+        const col = state.tableau[ci], card = col.at(-1);
+        if (card && canPlaceOnFoundation(card, state.foundations[fi]))
+          moves.push({ type:'tableau-foundation', ci, fi });
+      }
+      for (let fci = 0; fci < state.freecells.length; fci++) {
+        const card = state.freecells[fci];
+        if (card && canPlaceOnFoundation(card, state.foundations[fi]))
+          moves.push({ type:'freecell-foundation', fci, fi });
+      }
+    }
+    for (let ci = 0; ci < TABLEAU_COLS; ci++) {
+      const card = state.tableau[ci].at(-1);
+      if (!card) continue;
+      for (let di = 0; di < TABLEAU_COLS; di++)
+        if (ci !== di && canPlaceOnTableau(card, state.tableau[di]))
+          moves.push({ type:'tableau-tableau', ci, di });
+      for (let fci = 0; fci < state.freecells.length; fci++)
+        if (!state.freecells[fci]) moves.push({ type:'tableau-freecell', ci, fci });
+    }
+    for (let fci = 0; fci < state.freecells.length; fci++) {
+      const card = state.freecells[fci];
+      if (!card) continue;
+      for (let di = 0; di < TABLEAU_COLS; di++)
+        if (canPlaceOnTableau(card, state.tableau[di]))
+          moves.push({ type:'freecell-tableau', fci, di });
+    }
+    for (const move of moves) {
+      const next = copyState(state);
+      if (move.type === 'tableau-foundation')
+        next.foundations[move.fi].push(next.tableau[move.ci].pop());
+      else if (move.type === 'freecell-foundation') {
+        next.foundations[move.fi].push(next.freecells[move.fci]);
+        next.freecells[move.fci] = null;
+      } else if (move.type === 'tableau-tableau')
+        next.tableau[move.di].push(next.tableau[move.ci].pop());
+      else if (move.type === 'tableau-freecell') {
+        next.freecells[move.fci] = next.tableau[move.ci].pop();
+      } else {
+        next.tableau[move.di].push(next.freecells[move.fci]);
+        next.freecells[move.fci] = null;
+      }
+      if (search(next, depth + 1)) return true;
+    }
+    return false;
+  };
+  return search(initial, 0);
+}
+
+/* ---------------------------------------------------------
    6. GAME STATE
    --------------------------------------------------------- */
 let G = null;
@@ -264,17 +344,39 @@ function newRun() {
   dealBlind();
   renderAll();
 }
+let dealToken = 0;
 function dealBlind() {
-  const order = microsoftDeal(pickSeed());
-  G.tableau = dealColumns(order);
+  const token = ++dealToken;
+  G.phase = 'validating';
+  G.selected = null;
+  G.tableau = Array.from({length: TABLEAU_COLS}, () => []);
   G.freecells = Array(effectiveFreeCells(G)).fill(null);
   G.foundations = [[],[],[],[]];
-  G.score = 0; G.selected = null; G.undoStack = []; G.cardsScored = 0;
-  G.blindTarget = gt(G.ante, G.blindIdx);
-  if (G.ante === 5 && G.blindIdx === 2) G.blindTarget = Math.floor(G.blindTarget * 1.5);
-  G.phase = 'playing';
   updateBlindUI();
   renderAll();
+  let retry = 0;
+  const validateNext = () => {
+    if (token !== dealToken) return;
+    const seed = ((pickSeed() + retry) & 0x7fffffff) >>> 0;
+    const candidate = dealColumns(microsoftDeal(seed));
+    const freeCellCount = effectiveFreeCells(G);
+    if (isSolvableDeal(candidate, freeCellCount)) {
+      if (token !== dealToken) return;
+      G.tableau = candidate;
+      G.freecells = Array(freeCellCount).fill(null);
+      G.foundations = [[],[],[],[]];
+      G.score = 0; G.undoStack = []; G.cardsScored = 0;
+      G.blindTarget = gt(G.ante, G.blindIdx);
+      if (G.ante === 5 && G.blindIdx === 2) G.blindTarget = Math.floor(G.blindTarget * 1.5);
+      G.phase = 'playing';
+      updateBlindUI();
+      renderAll();
+      return;
+    }
+    retry++;
+    setTimeout(validateNext, 0);
+  };
+  setTimeout(validateNext, 0);
 }
 function redeal() {
   if (G.redeals <= 0 || !['playing','blind-done'].includes(G.phase)) return;
@@ -516,7 +618,7 @@ function renderHUD() {
   $('redeal-value').textContent = G.redeals; $('score-value').textContent = G.score;
   $('target-value').textContent = G.blindTarget;
   $('score-meter-fill').style.width = Math.min(100, (G.score/G.blindTarget)*100)+'%';
-  $('capacity-label').textContent = G.phase==='playing' ? 'Move up to '+maxMoveCapacity(G)+' cards' : '—';
+  $('capacity-label').textContent = G.phase==='playing' ? 'Move up to '+maxMoveCapacity(G)+' cards' : G.phase==='validating' ? 'Validating a beatable deal…' : '—';
   const rb = $('redeal-button'); rb.disabled = !(G.redeals>0 && ['playing','blind-done'].includes(G.phase));
 }
 function renderSelection() {
@@ -531,6 +633,14 @@ function renderSelection() {
   }
 }
 function updateBlindUI() {
+  if (G.phase === 'validating') {
+    $('blind-kicker').textContent = 'Preparing Blind';
+    $('blind-name').textContent = '♠ Validating…';
+    $('blind-icon').textContent = '♠';
+    $('blind-icon').className = 'blind-icon';
+    $('boss-effect').style.display = 'none';
+    return;
+  }
   const isBoss = G.blindIdx === 2;
   $('blind-kicker').textContent = BLIND_NAMES[G.blindIdx];
   const bn = bossName(G.ante);
