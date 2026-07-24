@@ -88,12 +88,12 @@ body{
 .section-label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
 .section-label span{font-size:0.55rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-dim);font-family:var(--font-display)}
 .section-label span+small{font-size:0.5rem;color:var(--text-dim)}
-.joker-row{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.joker-row{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
 .joker-slot{
-  flex:0 0 auto;width:90px;height:52px;border-radius:5px;
+  flex:0 0 auto;width:138px;min-height:78px;border-radius:5px;
   display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:3px 4px;text-align:center;
-  font-size:0.5rem;line-height:1.2;position:relative;overflow:hidden;
+  justify-content:center;padding:5px 6px;text-align:center;
+  font-size:0.5rem;line-height:1.2;position:relative;
 }
 .joker-slot.empty{border:1px dashed #2a2a3a;background:rgba(255,255,255,0.02)}
 .joker-slot.filled{
@@ -101,8 +101,8 @@ body{
   background:linear-gradient(135deg,#1a0a2a,#0d0b18);
   box-shadow:0 0 8px rgba(139,92,246,0.1);
 }
-.joker-slot strong{font-size:0.55rem;font-weight:700;color:#c8b0e8;font-family:system-ui,sans-serif}
-.joker-slot small{font-size:0.45rem;color:#9070a0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.joker-slot strong{font-size:0.65rem;font-weight:700;color:#c8b0e8;font-family:system-ui,sans-serif;line-height:1.15}
+.joker-slot small{font-size:0.55rem;color:#9070a0;line-height:1.25}
 .joker-rarity{position:absolute;top:0;left:0;width:100%;height:2px}
 .joker-rarity.common{background:#6a6a7a}
 .joker-rarity.uncommon{background:var(--gold-dim)}
@@ -272,9 +272,9 @@ body{
   .blind-copy strong{font-size:0.65rem}
   .score-box{min-width:60px}
   .score-box>div{font-size:0.7rem}
-  .joker-slot{width:68px;height:40px}
-  .joker-slot strong{font-size:0.45rem}
-  .joker-slot small{display:none}
+  .joker-slot{width:112px;min-height:68px;padding:4px 5px}
+  .joker-slot strong{font-size:0.55rem}
+  .joker-slot small{font-size:0.46rem;line-height:1.2}
   .card-rank{font-size:0.6rem}
   .card-suit{font-size:0.6rem}
   .foundation-base-suit{font-size:1rem}
@@ -290,8 +290,8 @@ body{
   .card-rank{font-size:0.7rem}
   .card-suit{font-size:0.7rem}
   .foundation-base-suit{font-size:1.1rem}
-  .joker-slot{width:76px;height:44px}
-  .joker-slot small{display:none}
+  .joker-slot{width:120px;min-height:70px}
+  .joker-slot small{font-size:0.5rem}
 }
 @media(min-width:600px)and(max-width:899px){
   :root{--card-w:62px;--card-h:86px;--card-olap:-40px}

@@ -47,8 +47,6 @@ const Sound = {
   deal()   { this._tone(200,0.04,'triangle',0.035); for(let i=1;i<4;i++)this._tone(200+i*40,0.04,'triangle',0.035,i*0.025); },
 };
 
-/* Deterministic seed pool for reproducible deals */
-const DEAL_SEEDS = Array.from({length: 500}, (_, i) => i + 1);
 
 /* Ante targets — reduced ~40% from original for approachable difficulty */
 const ANTE_TARGETS = [
@@ -331,10 +329,6 @@ function freshState() {
   };
 }
 
-function pickSeed() {
-  const b = (G.seed * 7 + G.ante * 31 + G.blindIdx * 17 + (G.skipCount||0) * 13) >>> 0;
-  return DEAL_SEEDS[b % DEAL_SEEDS.length];
-}
 
 /* ---------------------------------------------------------
    7. GAME ACTIONS
@@ -348,7 +342,9 @@ function newRun() {
   renderAll();
 }
 let dealToken = 0;
-const verifiedDealSeeds = new Map([[4, [1068]]]);
+function randomDealSeed() {
+  return Math.floor(Math.random() * 0x80000000);
+}
 function dealBlind() {
   const token = ++dealToken;
   G.phase = 'validating';
@@ -360,17 +356,13 @@ function dealBlind() {
   renderAll();
   let retry = 0;
   const freeCellCount = effectiveFreeCells(G);
-  const verifiedSeeds = verifiedDealSeeds.get(freeCellCount) || [];
+  const startingSeed = randomDealSeed();
   const validateNext = () => {
     if (token !== dealToken) return;
-    const seed = retry < verifiedSeeds.length
-      ? verifiedSeeds[retry]
-      : ((pickSeed() + retry - verifiedSeeds.length) & 0x7fffffff) >>> 0;
+    const seed = ((startingSeed + retry) & 0x7fffffff) >>> 0;
     const candidate = dealColumns(microsoftDeal(seed));
     if (isSolvableDeal(candidate, freeCellCount)) {
       if (token !== dealToken) return;
-      const knownSeeds = verifiedDealSeeds.get(freeCellCount) || [];
-      if (!knownSeeds.includes(seed)) verifiedDealSeeds.set(freeCellCount, [...knownSeeds, seed]);
       G.tableau = candidate;
       G.freecells = Array(freeCellCount).fill(null);
       G.foundations = [[],[],[],[]];
